@@ -1,0 +1,141 @@
+library("nortest")
+library("splines")                  
+library("graphics")
+library("stats")
+library("survival")
+library("graphics")
+library("MASS")
+library("tseries")
+library("car")
+library("forecast")
+
+rm(list=ls())
+setwd("/Volumes/AGUA/Tesis_fer")
+
+###Lectura y gr?fica de la serie
+M0<-read.table("W25.txt",header=FALSE,sep = " ",dec = ".")
+M<-numeric(84)
+for(i in 1:84){M[i]=M0[i,1]}
+Serie1<-ts(M,st=1,end=84,freq=1)
+
+X11()
+plot(Serie1,main="Wilma:obs. minuto 25 cada 2 horas",
+xlab="varianza y tendencia no constantes")
+#se observa varianza y tendencia no constantes
+
+###Tratamiento de outliers
+#No hay tratamiento de outliers puesto que nos interesa preservar
+#la din?mica ca?tica de Wilma
+
+#transformaci?n Box Cox
+regresion<-lm(Serie1~time(Serie1))
+
+X11()
+boxcox(regresion, lambda = seq(2, 7, 1/10),
+xlab = expression(lambda),ylab = "log-Likelihood")
+
+Serie2<-bcPower(Serie1,5, jacobian.adjusted = FALSE)
+#aqu? ocurre la transformaci?n Box-Cox con lambda=5
+
+###Tendencia
+acf(Serie1,lag=70)#q=13
+k=c(1,rep(1,25),1)
+q<-(length(k)-1)/2
+(k=k/sum(k))
+filtro=filter(Serie1,sides=2,k)# Definici?n del filtro lineal.
+
+plot(Serie1,col="blue")
+par(new=T)
+plot(filtro,col="red")
+
+W<-numeric(84-(2*q))
+for(i in 1:(84-(2*q))){W[i]=Serie1[q+i]-filtro[q+i]}
+Serie3<-ts(W,start=1,end=length(W),freq=1)
+plot(Serie3,main="Serie original sin componente
+de tendencia")
+
+###Comparaci?n entre series para indagar en el valor de
+#sus par?metros
+X11()
+par(mfrow=c(2,2))
+acf(Serie2,lag=70,main="Serie transformada con Box-Cox")
+pacf(Serie2,lag=70,main="Serie transformada con Box-Cox")
+acf(Serie1,lag=70,main="Serie original")
+pacf(Serie1,lag=70,main="Serie original")
+
+###diferenciaci?n
+diferencia1<-diff(Serie1,lag=1,differences=1)
+diferencia2<-diff(Serie1,lag=12,diferences=1)
+
+par(mfrow=c(2,1))
+plot(diferencia1)
+plot(diferencia2,col="red")
+
+par(mfrow=c(2,2))
+acf(diferencia1,lag=70)
+pacf(diferencia1,lag=70)
+acf(diferencia2,lag=70)
+pacf(diferencia2,lag=70)
+
+###modeloarima
+modelo1<-arima(Serie1,order=c(1,1,1))
+modelo2<-arima(Serie1,order=c(2,1,2))
+modelo3<-arima(Serie2,order=c(1,1,1))
+modelo4<-arima(Serie2,order=c(2,1,2))
+modelo5<-arima(Serie3,order=c(1,1,1))
+modelo6<-arima(Serie3,order=c(2,1,2))
+modelo1$aic
+modelo2$aic
+modelo3$aic
+modelo4$aic
+modelo5$aic
+modelo6$aic
+
+###Candidato Xt=Mt+arima(1,1,1)
+#los de menor aic
+par(mfrow=c(2,2))
+acf(modelo5$residuals,lag=30)
+pacf(modelo5$residuals,lag=30)
+acf(modelo1$residuals,lag=30)
+pacf(modelo1$residuals,lag=30)
+
+#de los dos escogemos el modelo5 ya que 
+#sus residuales se asemejan a un ruido blanco normal
+
+###Inspecci??n de par??metros significativos
+modelo5
+abs(-.1585/.1301);abs(-1/.0531)
+#el par??metro no significativo fue ar1 por lo que
+#lo quitamos
+
+modelo7<-arima(W,order=c(1,1,1),
+         transform.pars=FALSE,fixed=c(0,NA))
+
+par(mfrow=c(2,1))
+acf(modelo7$residuals,lag=30)
+pacf(modelo7$residuals,lag=30)
+
+###Pruebas de normalidad e independencia
+#para los residuales
+Box.test(modelo7$residuals)
+#Con probabilidad 0.95 
+#los residuales son muestras independientes
+
+#gr??fica de cuantiles te??ricos vs cuantiles observados
+qqnorm(modelo7$residuals, main = "Normal Q-Q Plot",
+       xlab = "Theoretical Quantiles",
+       ylab = "Sample Quantiles",
+       plot.it = TRUE, datax = FALSE)
+qqline(modelo7$residuals, datax = FALSE, 
+       distribution = qnorm,
+       probs = c(0.25, 0.75), qtype = 7)
+
+hist(modelo7$residuals)
+shapiro.test(modelo7$residuals)$p.value
+#los residuales no se distribuyen de manera normal
+
+#significancia del par??metro del modelo7
+modelo7
+abs(1/.0495);modelo7$aic
+#el par??metro es significativo y tiene el aic m??s peque??o
+#en comparaci??n de los dem??s modelos
