@@ -1,0 +1,103 @@
+library("nortest")
+library("splines")                  
+library("graphics")
+library("stats")
+library("survival")
+library("graphics")
+library("MASS")
+library("tseries")
+library("car")
+library("forecast")
+library("xts")
+
+rm(list=ls())
+setwd("/Volumes/AGUA/Tesis_fer")
+#setwd("G:/Tesis_fer")
+
+###Leer y graficar la serie
+Stan<-read.table("Stan25.txt",header=FALSE,dec=".",sep=" ")
+S <- numeric(60)
+for(i in 1:60){S[i]=Stan[i,1]}
+start.date <- as.POSIXct("2005-10-1 00:25:00")
+end.date <- as.POSIXct("2005-10-5 22:25:00")
+time.index <- seq(start.date, by="2 hours", end.date)
+Fecha <- time.index
+Serie<- xts(S, Fecha)
+
+plot(Serie,main="Stan: obs. cada 2 hrs. minuto 25")
+S<-ts(Serie)
+plot(S)
+
+###Tratamiento de outliers
+summary(boxplot(S))
+summary(S)
+outliers<-numeric(2)
+j=1
+for(i in 1:60)
+{if(S[i]<19.66) outliers[j]=i;j=j+1;
+if(S[i]>=21.455) outliers[j]=i;j=j+1;}
+outliers<-c(13,25)
+View(outliers)
+for(i in 1:2)
+{S[outliers[i]]=(S[outliers[i]-1]+S[outliers[i]+1])/2}
+boxplot(S)   #La ST ya no tiene valores at?picos
+
+###Transformaci??n Box-Cox
+#porque la serie presenta varianza no constante
+regresion<-lm(S~time(S))
+boxcox(regresion, lambda = seq(0,5, 1/10),
+       xlab = expression(lambda),ylab = "log-Likelihood")
+S25<-bcPower(S,3, jacobian.adjusted = FALSE)
+plot(S25)
+
+#Diferenciaci??n a causa de que Stan no presenta
+#componente estacional pero si presenta tendencia
+#no constante
+diferencia1<-diff(S,lag=1,differences=1)
+plot(diferencia1)
+#diferencia de la forma (1-B)^d
+
+par(mfrow=c(2,3))
+acf(diferencia1,main="Serie diferenciada")
+acf(S,main="Serie original sin outliers")
+acf(S25,main="transformaci??n Box-Cox")
+pacf(diferencia1,main="Serie diferenciada")
+pacf(S,main="Serie original sin outliers")
+pacf(S25,main="transformaci??n Box-Cox")
+
+modelo1<-arima(S,order=c(1,0,1),method="ML")
+modelo1$aic
+modelo2<-arima(S,order=c(2,0,2),method="ML")
+modelo2$aic
+modelo3<-arima(S,order=c(3,0,3),method="ML")
+modelo3$aic
+
+modelo4<-arima(S25,order=c(1,0,1),method="ML")
+modelo4$aic
+modelo5<-arima(S25,order=c(2,0,2),method="ML")
+modelo5$aic
+modelo6<-arima(S25,order=c(3,0,3),method="ML")
+modelo6$aic
+
+modelo7<-arima(diferencia1,order=c(1,0,1),method="ML")
+modelo7$aic
+modelo8<-arima(diferencia1,order=c(2,0,2),method="ML")
+modelo8$aic
+
+#mejor candidato modelo2 ARMA(2,2)
+par(mfrow=c(2,1))
+acf(modelo2$residuals)
+pacf(modelo2$residuals)
+
+#Prueba de normalidad e independencia sobre los residuales
+Box.test(modelo2$residuals)
+#los residuales son independientes
+shapiro.test(modelo2$residuals)
+#los residuales se distribuyen de manera nomal
+
+#significancia de los par?metros
+confint(modelo2)
+parametros<-numeric(4)
+for(i in 1:4)
+{parametros[i]=modelo2$coef[i]/sqrt(modelo2$var.coef[i,i])}
+abs(parametros)   #todos los par?metros son significativos
