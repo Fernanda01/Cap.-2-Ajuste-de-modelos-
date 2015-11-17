@@ -1,0 +1,399 @@
+library("nortest")
+library("splines")                  
+library("graphics")
+library("stats")
+library("survival")
+library("graphics")
+library("MASS")
+library("tseries")
+library("car")
+library("forecast")
+library("xts")
+
+rm(list=ls())
+#setwd("G:/Tesis_fer")
+setwd("/Volumes/AGUA/Tesis_fer")
+###Leer y graficar la serie
+Gamma<-read.table("Gamma25.txt",header=FALSE,dec=".",sep=" ")
+G1<- numeric(48)
+for(i in 1:48){G1[i]=Gamma[i,1]}
+
+start.date <- as.POSIXct("2005-11-18 00:25:00")
+end.date <- as.POSIXct("2005-11-21 22:25:00")
+Fecha <- seq(start.date, by="2 hours", end.date)
+Serie<- xts(G1, Fecha)
+
+G <- ts(G1,start=3853,end=3900,frequency=1)
+plot(Serie)
+
+###Tratamiento de outliers
+c<-boxplot(G)
+c$out
+summary(G)
+for(i in 1:48)
+{if(G[i]==20.353|G[i]==22.716|G[i]==23.493){G[i]=mean(G)}}
+boxplot(G)
+#La serie ya no presenta outliers
+
+#varianza
+regresion<-lm(G~time(G))
+boxcox(regresion, lambda = seq(0,8, 1/10),
+       xlab = expression(lambda),ylab = "log-Likelihood")
+G25<-bcPower(G,5, jacobian.adjusted = FALSE)
+plot(G25)
+
+#tendencia
+diferencia1<-diff(G,lag=1,differences=1)
+plot(diferencia1)
+
+par(mfrow=c(2,3))
+acf(G,main="Original")
+acf(G25,main="Box cox")
+acf(diferencia1,main="diferenciada")
+pacf(G,main="Original")
+pacf(G25,main="Box cox")
+pacf(diferencia1,main="diferenciada")
+
+modelo1<-arima(G,order=c(1,0,1),method="ML")
+modelo1$aic
+modelo2<-arima(G,order=c(2,0,2),method="ML")
+modelo2$aic
+modelo3<-arima(G,order=c(3,0,3),method="ML")
+modelo3$aic
+
+
+modelo4<-arima(G25,order=c(1,0,1),method="ML")
+modelo4$aic
+modelo5<-arima(G25,order=c(2,0,2),method="ML")
+modelo5$aic
+
+modelo6<-arima(diferencia1,order=c(1,0,1),method="ML")
+modelo6$aic
+modelo7<-arima(diferencia1,order=c(2,0,2),method="ML")
+modelo7$aic
+
+
+#mejores candidatos modelo2 y modelo6
+par(mfrow=c(2,2))
+acf(modelo2$residuals)
+pacf(modelo2$residuals)
+acf(modelo6$residuals)
+pacf(modelo6$residuals)
+
+confint(modelo2)
+confint(modelo6)
+
+modelo8<-arima(G,order=c(10,0,10),method="ML")
+
+par(mfrow=c(2,1))
+acf(modelo8$residuals)
+pacf(modelo8$residuals)
+
+###Significancia de par??metros
+confint(modelo8)
+modelo8
+sd=c(0.2001,0.1975,  0.1590,   0.1390,  0.1707,   0.1646,
+     0.1877,0.1727,0.1581 ,  0.1452 ,  0.4138  , 0.4918,
+     0.4196 ,  0.4201  , 0.4102,  0.3835,  0.4302,   0.3610,
+     0.3896  ,0.3981  ,   0.0067)
+abs(modelo8$coef/sd)#ma5
+
+modelo9<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+                       NA,NA,NA,NA,0 ,NA,NA,NA,NA,NA,NA))
+
+par(mfrow=c(2,1))
+acf(modelo9$residuals)
+pacf(modelo9$residuals)
+
+modelo9
+sd=c(0.1907,   0.1962,  0.1524,   0.1403,  0.1526 ,  0.1644,
+     0.1877 ,  0.1744,  0.1585,   0.1469 ,  0.3616  , 0.4336,
+     0.3652,   0.3882,    1,  0.3292  ,0.3812 ,  0.3004,   0.3798,
+     0.4096,     0.0067)
+abs(modelo9$coef/sd)#ar8
+
+confint(modelo9)
+modelo10<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,NA,0 ,NA,NA,
+                       NA,NA,NA,NA,0 ,NA,NA,NA,NA,NA,NA))
+
+par(mfrow=c(2,1))
+acf(modelo10$residuals)
+pacf(modelo10$residuals)
+
+modelo10
+sd=c(0.1693 ,  0.1633  ,0.1500 ,  0.1365 , 0.1523 ,  0.1617,
+     0.1850  ,  1,  0.1593 ,  0.1416  , 0.3445  , 0.4157 ,  0.3582,
+     0.3623,1, 0.3112 , 0.3698  , 0.2860  , 0.3629 , 0.3392,
+     0.0065)
+abs(modelo10$coef/sd)#ma3
+
+confint(modelo10)
+modelo11<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,NA,0 ,NA,NA,
+                       NA,NA,0 ,NA,0 ,NA,NA,NA,NA,NA,NA))
+
+par(mfrow=c(2,1))
+acf(modelo11$residuals)
+pacf(modelo11$residuals)
+
+modelo11
+sd=c(0.1548,0.1494, 0.1218, 0.1278, 0.1368, 0.1648,
+     0.1812,1,0.1481  , 0.1426 ,  0.3442 ,  0.3366,1,
+     0.3552,1,0.2792 , 0.3197 ,  0.2796 ,  0.3537 , 0.3130,
+     0.0065)
+abs(modelo11$coef/sd)#ma4
+
+confint(modelo11)
+modelo12<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,NA,0 ,NA,NA,
+                       NA,NA,0 ,0 ,0 ,NA,NA,NA,NA,NA,NA))
+
+par(mfrow=c(2,1))
+acf(modelo12$residuals)
+pacf(modelo12$residuals)
+
+modelo12
+sd=c(0.1520,0.1531,0.1138,0.1209,0.1189,0.1629,
+     0.1735 ,1,0.1487,0.1337,0.3388,0.3472,1,1,
+     1,0.2968,0.3223 ,0.2888,0.3357,0.3140,0.0063)
+abs(modelo12$coef/sd)#ma10
+
+confint(modelo12)
+modelo13<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,NA,0 ,NA,NA,
+                       NA,NA,0 ,0 ,0 ,NA,NA,NA,NA,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo13$residuals)
+pacf(modelo13$residuals)
+
+modelo13
+sd=c(0.1550,0.1170,0.1139,0.1207,0.1169,0.1602,
+     0.1704,1,0.1354,.1049,0.3313,0.2494 ,1,1,
+     1,0.2506,0.3049,0.2736,0.2964,1,0.0066)
+abs(modelo13$coef/sd)#ma9
+
+confint(modelo13)
+modelo14<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,NA,0 ,NA,NA,
+                       NA,NA,0 ,0 ,0 ,NA,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo14$residuals)
+pacf(modelo14$residuals)
+
+modelo14
+sd=c(0.1172,0.1048,0.1056,0.1210,.1161,0.1282,
+     0.1440 ,1,0.1221,0.1014 ,0.2794,0.2488,1,1,
+     1, 0.2610,0.2744, 0.2815,1,1,0.0063)
+abs(modelo14$coef/sd)#ar3
+
+confint(modelo14)
+modelo15<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(NA,NA,0 ,NA,NA,NA,NA,0 ,NA,NA,
+                       NA,NA,0 ,0 ,0 ,NA,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo15$residuals)
+pacf(modelo15$residuals)
+
+modelo15
+sd=c(0.1111,0.1019,1,0.1207, 0.1111,0.1299 , 0.1423,
+     1,0.1196  , 0.0960, 0.2622,0.2285,1,1,1,
+     0.2421,0.2553,0.2869 ,1,1, 0.0059)
+abs(modelo15$coef/sd)#ar9
+
+confint(modelo15)
+modelo16<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(NA,NA,0 ,NA,NA,NA,NA,0 ,0 ,NA,
+                       NA,NA,0 ,0 ,0 ,NA,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo16$residuals)
+pacf(modelo16$residuals)
+
+modelo16
+sd=c(0.1085,0.1024,1,0.1167,0.1155,0.1409,0.1430,
+     1,1,0.0944,0.2858,0.2504,1,1,1,
+     0.2759 ,0.2667, 0.3218,1,1,0.0057)
+abs(modelo16$coef/sd)#ar1
+
+confint(modelo16)
+modelo17<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(0 ,NA,0 ,NA,NA,NA,NA,0 ,0 ,NA,
+                       NA,NA,0 ,0 ,0 ,NA,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo17$residuals)
+pacf(modelo17$residuals)
+
+modelo17
+sd=c(1,0.1008,1,0.1173,0.1198,0.1408,0.1407,1,
+     1,0.0978,0.2805,0.2501,1,1,1, 0.3016,
+     0.2332, 0.3820 ,1,1,0.0057)
+abs(modelo17$coef/sd)#ma6
+
+confint(modelo17)
+modelo18<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(0 ,NA,0 ,NA,NA,NA,NA,0 ,0 ,NA,
+                       NA,NA,0 ,0 ,0 ,0 ,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo18$residuals)
+pacf(modelo18$residuals)
+
+modelo18
+sd=c(1,0.1303,1,0.1192 , 0.1274 ,  0.1453  , 0.1429,1,
+    1,0.1098 ,  0.1997 ,  0.1717 ,1,1,1,1,
+     0.1993 ,  0.2278,1,1,0.0061)
+abs(modelo18$coef/sd)#ar2
+
+confint(modelo18)
+modelo19<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(0 ,0,0 ,NA,NA,NA,NA,0 ,0 ,NA,
+                       NA,NA,0 ,0 ,0 ,0 ,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo19$residuals)
+pacf(modelo19$residuals)
+
+modelo19
+sd=c(1,1,1,0.1213 , 0.1296 ,  0.1414  , 0.1449,1,
+     1,0.1132 ,  0.1934 ,  0.1581 ,1,1,1,1,
+     0.1998 ,  0.2004,1,1,0.0062)
+abs(modelo19$coef/sd)#ar7
+
+confint(modelo19)
+modelo20<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(0 ,0 ,0 ,NA,NA,NA,0 ,0 ,0 ,NA,
+                       NA,NA,0 ,0 ,0 ,0 ,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo20$residuals)
+pacf(modelo20$residuals)
+
+modelo20
+sd=c(1,1,1,0.1183 , 0.1343 ,  0.1417  , 1,1,
+     1,0.1202 ,  0.1867 ,  0.1554 ,1,1,1,1,
+     0.1981 ,  0.2138,1,1,0.0068)
+abs(modelo20$coef/sd)#ma1
+
+confint(modelo20)
+modelo21<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(0 ,0 ,0 ,NA,NA,NA,0 ,0 ,0 ,NA,
+                       0 ,NA,0 ,0 ,0 ,0 ,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo21$residuals)
+pacf(modelo21$residuals)
+
+modelo21
+sd=c(1,1,1,0.1279 , 0.1309 ,  0.1469  , 1,1,
+     1,0.1238 ,1,  0.1909 ,1,1,1,1,
+     0.2026 ,  0.2634,1,1,0.0074)
+abs(modelo21$coef/sd)#ar4
+
+confint(modelo21)
+modelo22<-arima(G,order=c(10,0,10),method="ML",
+               transform.pars=FALSE,
+               fixed=c(0 ,0 ,0 ,NA,NA,NA,0 ,0 ,0 ,NA,
+                       0 ,NA,0 ,NA,0 ,0 ,NA,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo22$residuals)
+pacf(modelo22$residuals)
+
+modelo22
+sd=c(1,1,1, 0.136,  0.1393,.1535, 1,1,
+     1,0.1337,1,  0.2265,1,.274,1,1,.1948,
+     0.3438,1,1,0.0077)
+abs(modelo22$coef/sd)#ma4
+
+confint(modelo22)
+modelo23<-arima(G,order=c(10,0,10),method="ML",
+                transform.pars=FALSE,
+                fixed=c(0 ,0 ,0 ,NA,NA,NA,0 ,0 ,0 ,NA,
+                        0 ,NA,0 ,0 ,0 ,0 ,0 ,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo23$residuals)
+pacf(modelo23$residuals)
+
+modelo23
+sd=c(1,1,1, 0.1381,  0.1373,.1579, 1,1,
+     1,0.1275,1,.1848,1,1,1,1,1,
+     0.2288,1,1,0.0089)
+abs(modelo23$coef/sd)#ar7 o ar4
+
+confint(modelo23)
+modelo24<-arima(G,order=c(10,0,10),method="ML",
+                transform.pars=FALSE,
+                fixed=c(0 ,0 ,0 ,NA,NA,0 ,0 ,0 ,0 ,NA,
+                        0 ,NA,0 ,0 ,0 ,0 ,0 ,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo24$residuals)
+pacf(modelo24$residuals)
+
+modelo24
+sd=c(1,1,1, 0.1251,  0.1358,1, 1,1,
+     1,0.1288,1,.1713,1,1,1,1,1,
+     0.1653,1,1,0.015)
+abs(modelo24$coef/sd)#
+
+confint(modelo24)
+modelo25<-arima(G,order=c(10,0,10),method="ML",
+                transform.pars=FALSE,
+                fixed=c(0 ,0 ,0 ,NA,NA,0 ,0 ,0 ,0 ,NA,
+                        0 ,0 ,0 ,0 ,0 ,0 ,0 ,NA,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo25$residuals)
+pacf(modelo25$residuals)
+
+modelo25
+sd=c(1,1,1, 0.1196,  0.1249,1, 1,1,
+     1,0.1236,1,1,1,1,1,1,1,
+     0.1524,1,1,0.0218)
+abs(modelo25$coef/sd)#
+
+confint(modelo26)
+modelo26<-arima(G,order=c(10,0,10),method="ML",
+                transform.pars=FALSE,
+                fixed=c(0 ,0 ,0 ,0 ,NA,0 ,0 ,0 ,0 ,NA,
+                        0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,NA))
+
+par(mfrow=c(2,1))
+acf(modelo26$residuals)
+pacf(modelo26$residuals)
+
+modelo26
+sd=c(1,1,1,1,  0.129,1, 1,1,
+     1,0.1293,1,1,1,1,1,1,1,
+     1,1,1,0.0379)
+abs(modelo26$coef/sd)#Todos significativos#
+
+###Residuales
+par(mfrow=c(2,1))
+acf(modelo26$residuals)
+pacf(modelo26$residuals)
+
+Box.test(modelo26$residuals)
+#los residuales son independientes
+shapiro.test(modelo26$residuals)
+#los residuales se distribuyen de manera normal
