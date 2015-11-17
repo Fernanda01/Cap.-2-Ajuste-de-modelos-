@@ -1,0 +1,212 @@
+library("nortest")
+library("splines")                  
+library("graphics")
+library("stats")
+library("survival")
+library("MASS")
+library("tseries")
+library("car")
+library("forecast")
+
+rm(list=ls())
+setwd("/Volumes/AGUA/Tesis_fer")
+#setwd("G:/Tesis_fer")
+###Lectura y gr?fica de los datos
+D0<-read.table("Despues25.txt",header=FALSE,sep="",dec = ".")
+D00<-numeric(300)
+for(i in 1:length(D00))
+{D00[i]=D0[i,1]}
+
+DW<-ts(D00,start=1,end=300,freq=1)
+plot(DW)
+
+###Tendencia
+acf(DW,lag=75)#q=40
+k=c(.5,rep(1,79),.5)
+q<-(length(k)-1)/2
+(k=k/sum(k))
+filtro=filter(DW,sides=2,k)# Definici?n del filtro lineal.
+
+plot(DW,col="blue")
+par(new=T)
+plot(filtro,col="red")
+
+D<-numeric(300-(2*q))
+for(i in 1:(300-(2*q))){D[i]=DW[q+i]-filtro[q+i]}
+DWW<-ts(D,start=1,end=length(D),freq=1)
+plot(DWW,main="Serie original sin componente de tendencia")
+
+acf(DWW)
+pacf(DWW)
+a<-arima(DWW,order=c(1,0,1),method="ML",
+         seasonal=list(order=c(0,1,0),period=6))
+a$aic
+b<-arima(DWW,order=c(2,0,2),method="ML",
+         seasonal=list(order=c(0,1,0),period=6))
+b$aic
+c<-arima(DWW,order=c(3,0,3),method="ML",
+         seasonal=list(order=c(0,1,0),period=6))
+c$aic
+d<-arima(DWW,order=c(4,0,4),method="ML",
+         seasonal=list(order=c(0,1,0),period=6))
+d$aic
+ 
+acf(c$residuals,lag=75)
+pacf(c$residuals,lag=75)
+
+modelo1<-arima(DWW,order=c(6,0,6),method="ML",
+         seasonal=list(order=c(0,1,0),period=6))
+acf(modelo1$residuals,lag=75)
+pacf(modelo1$residuals,lag=75)
+
+confint(modelo1)
+modelo1
+sd=c( 0.0725,0.0722,0.0694,0.0727,0.0726,0.0710, 
+      0.0374,0.0372,0.0394,0.0373,0.0373,0.0395)
+abs(modelo1$coef/sd)#ma3
+
+modelo2<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,
+                       NA,NA,0,NA,NA,NA))
+acf(modelo2$residuals)
+pacf(modelo2$residuals)
+confint(modelo2)
+modelo2
+sd=c(0.0725,0.0722,0.0694,0.0727,0.0726,0.0710,
+     0.0371,0.0367,1,0.0367,0.0370,0.0379)
+abs(modelo2$coef/sd)#ma4
+
+modelo3<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,
+                       NA,NA,0,0,NA,NA))
+acf(modelo3$residuals)
+pacf(modelo3$residuals)
+confint(modelo3)
+modelo3
+sd=c(0.0725 , 0.0707 ,  0.0693 , 0.0710 , 0.0725 , 0.0710,
+     0.0354,0.0356 ,1,1, 0.0363 ,  0.0378)
+abs(modelo3$coef/sd)#ma2
+
+modelo4<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(NA,NA,NA,NA,NA,NA,
+                       NA,0,0,0,NA,NA))
+acf(modelo4$residuals)
+pacf(modelo4$residuals)
+confint(modelo4)
+modelo4
+sd=c(0.0724 , 0.0682  , 0.0693 , 0.0683 , 0.0723 , 0.0710 ,
+     0.0351,1,1,1, 0.035 ,  0.0378)
+abs(modelo4$coef/sd)#ar1
+
+modelo5<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(0,NA,NA,NA,NA,NA,
+                       NA,0,0,0,NA,NA))
+acf(modelo5$residuals)
+pacf(modelo5$residuals)
+confint(modelo5)
+modelo5
+sd=c(1,0.0682,0.0692,0.0680,0.0720,0.0707,0.0343,
+     1,1,1,0.0342  , 0.0378)
+abs(modelo5$coef/sd)#ar4
+
+modelo6<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(0,NA,NA,0,NA,NA,
+                       NA,0,0,0,NA,NA))
+acf(modelo6$residuals)
+pacf(modelo6$residuals)
+confint(modelo6)
+modelo6
+sd=c(1,0.0682,0.0692,1,0.0719,0.0706,0.0348,
+     1,1,1, 0.0347,0.0379)
+abs(modelo6$coef/sd)#ma1
+
+modelo7<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(0,NA,NA,0,NA,NA,
+                       0,0,0,0,NA,NA))
+acf(modelo7$residuals)
+pacf(modelo7$residuals)
+confint(modelo7)
+modelo7
+sd=c(1,0.0682,0.0693,1,0.0712,0.0708,1,
+     1,1,1, 0.0334,0.0388)
+abs(modelo7$coef/sd)#ma5
+
+modelo8<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(0,NA,NA,0,NA,NA,
+                       0,0,0,0,0,NA))
+acf(modelo8$residuals)
+pacf(modelo8$residuals)
+confint(modelo8)
+modelo8
+sd=c(1,0.0683,0.693,1, 0.0687,0.0706,1,1,
+     1,1,1,0.038)
+abs(modelo8$coef/sd)#ar3
+
+modelo9<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(0,NA,0,0,NA,NA,
+                       0,0,0,0,0,NA))
+acf(modelo9$residuals)
+pacf(modelo9$residuals)
+confint(modelo9)
+modelo9
+sd=c(1,0.0687,1,1, 0.069,0.0705,1,1,1,1,1,0.0397)
+abs(modelo9$coef/sd)#ar5
+
+modelo10<-arima(DWW,order=c(6,0,6),method="ML",
+               seasonal=list(order=c(0,1,0),period=6),
+               transform.pars=FALSE,
+               fixed=c(0,NA,0,0,0,NA,
+                       0,0,0,0,0,NA))
+acf(modelo10$residuals)
+pacf(modelo10$residuals)
+confint(modelo10)
+modelo10
+sd=c(1,0.0684,1,1,1,0.0707,1,1,1,1,1,0.0394)
+abs(modelo10$coef/sd)#ar6
+
+modelo11<-arima(DWW,order=c(6,0,6),method="ML",
+                seasonal=list(order=c(0,1,0),period=6),
+                transform.pars=FALSE,
+                fixed=c(0,NA,0,0,0,0,
+                        0,0,0,0,0,NA))
+acf(modelo11$residuals)
+pacf(modelo11$residuals)
+confint(modelo11)
+modelo11
+sd=c(1,0.0686,1,1,1,1,1,1,1,1,1,0.0446)
+abs(modelo11$coef/sd)#ar2
+
+modelo12<-arima(DWW,order=c(6,0,6),method="ML",
+                seasonal=list(order=c(0,1,0),period=6),
+                transform.pars=FALSE,
+                fixed=c(0,0,0,0,0,0,
+                        0,0,0,0,0,NA))
+acf(modelo12$residuals)
+pacf(modelo12$residuals)
+confint(modelo12)
+modelo12
+sd=c(1,1,1,1,1,1,1,1,1,1,1,0.0447)
+abs(modelo12$coef/sd)#Todos significativos
+
+Box.test(modelo12$residuals)
+#Los residuales son independientes
+shapiro.test(modelo12$residuals)
+#los residuales se distribuyen de manera normal
+#modelo final SARIMA(0,0,6)x(0,1,0)_6
+
